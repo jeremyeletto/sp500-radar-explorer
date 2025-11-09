@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>S&amp;P 500 Radar Explorer</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <script defer src="./app.js"></script>
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="hero">
+        <h1>S&amp;P 500 Radar Explorer</h1>
+        <p>
+          Compare key financial scores across the S&amp;P 500 universe. Pick a
+          symbol to view its radar chart and discover similar companies.
+        </p>
+      </div>
+      <div class="controls">
+        <label class="control-block">
+          <span class="control-label">Search companies</span>
+          <input
+            id="companySearch"
+            list="companyOptions"
+            type="search"
+            placeholder="Start typing e.g. AAPL or Apple"
+            autocomplete="off"
+          />
+          <datalist id="companyOptions"></datalist>
+          <p class="control-hint">
+            Use the arrow keys or press Enter to load a company.
+          </p>
+        </label>
+        <div class="control-block control-block--metrics">
+          <span class="control-label">Metrics shown on radar</span>
+          <div id="metricOptions" class="metric-options"></div>
+          <p class="control-hint">
+            Toggle metrics to customise both the chart and similarity results.
+            At least one metric must remain selected.
+          </p>
+        </div>
+      </div>
+    </header>
+
+    <main class="content">
+      <section class="primary-panel">
+        <div class="primary-meta">
+          <h2 id="companyTitle">Select a company to begin</h2>
+          <p id="companySubtitle"></p>
+          <dl id="companyDetails" class="company-details"></dl>
+        </div>
+        <div id="mainChart" class="radar-chart"></div>
+      </section>
+
+      <section class="secondary-panel">
+        <div class="panel-heading">
+          <h3>Similar Companies</h3>
+          <p>
+            Calculated using Euclidean distance across the nine financial score
+            dimensions shown in the radar chart.
+          </p>
+        </div>
+        <div id="similarCompanies" class="similar-grid"></div>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <p>
+        Data source:
+        <span class="mono">Sp500fin2_scored.csv</span>
+      </p>
+    </footer>
+  </body>
+</html>
+
