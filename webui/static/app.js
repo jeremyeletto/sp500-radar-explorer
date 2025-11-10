@@ -88,9 +88,13 @@ async function bootstrap() {
     initMetricControls();
     filteredCompanies = companies.slice();
     updateTypeaheadOptions(filteredCompanies);
+    const querySymbol = getSymbolFromQuery();
     const defaultSymbol = "AAPL";
-    const initial =
-      symbolIndex.get(defaultSymbol) || filteredCompanies[0] || null;
+    let initial =
+      (querySymbol && symbolIndex.get(querySymbol)) ||
+      symbolIndex.get(defaultSymbol) ||
+      filteredCompanies[0] ||
+      null;
     if (initial) {
       selectCompany(initial.Symbol);
     } else {
@@ -235,7 +239,11 @@ function commitSearch(rawValue) {
 }
 
 function selectCompany(symbol) {
+  if (typeof symbol === "string") {
+    symbol = symbol.toUpperCase();
+  }
   if (!symbolIndex.has(symbol)) {
+    updateUrlSymbol(null);
     renderEmptyState("Select a company to view its radar chart.");
     return;
   }
@@ -249,6 +257,7 @@ function selectCompany(symbol) {
   updateTypeaheadOptions(filteredCompanies);
 
   currentSymbol = symbol;
+  updateUrlSymbol(symbol);
   const activeFields = getActiveMetrics();
   updateCompanyDetails(company);
   renderRadarChart(document.getElementById("mainChart"), company, {
@@ -591,6 +600,30 @@ function positionTooltip(tooltip, pageX, pageY) {
 
 function hideTooltip(tooltip) {
   tooltip.dataset.visible = "false";
+}
+
+function getSymbolFromQuery() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const symbol = params.get("symbol");
+    return symbol ? symbol.toUpperCase() : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function updateUrlSymbol(symbol) {
+  try {
+    const url = new URL(window.location);
+    if (symbol) {
+      url.searchParams.set("symbol", symbol);
+    } else {
+      url.searchParams.delete("symbol");
+    }
+    window.history.replaceState({}, "", url);
+  } catch (error) {
+    // Ignore history errors (e.g., unsupported environments)
+  }
 }
 
 function initMetricControls() {

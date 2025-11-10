@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>S&amp;P 500 Blended Rankings</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <script defer src="./rankings.js"></script>
+  </head>
+  <body>
+    <header class="app-header">
+      <nav class="app-nav">
+        <a href="./index.html" class="app-nav__link">Radar View</a>
+        <a href="./rankings.html" class="app-nav__link app-nav__link--active"
+          >Rankings</a
+        >
+      </nav>
+      <div class="hero">
+        <h1>S&amp;P 500 Blended Rankings</h1>
+        <p>
+          Rank every company by a blended score across the metrics you care
+          about. Adjust the selections to instantly recompute the leaderboard.
+        </p>
+      </div>
+      <div class="controls ranking-controls">
+        <label class="control-block">
+          <span class="control-label">Search by ticker, name, or sector</span>
+          <input
+            id="rankingSearch"
+            type="search"
+            placeholder="e.g. AAPL, Financial Services"
+            autocomplete="off"
+          />
+        </label>
+        <label class="control-block">
+          <span class="control-label">Maximum rows</span>
+          <input
+            id="topNInput"
+            type="number"
+            min="10"
+            max="505"
+            step="5"
+            value="100"
+          />
+          <p class="control-hint">
+            Table updates automatically when you change this value.
+          </p>
+        </label>
+        <div class="control-block control-block--metrics">
+          <span class="control-label">Metrics included in blended score</span>
+          <div id="metricOptions" class="metric-options"></div>
+          <p class="control-hint">
+            At least one metric must remain selected. Missing values default to
+            50 to keep blends comparable.
+          </p>
+        </div>
+      </div>
+    </header>
+
+    <main class="content">
+      <section class="ranking-panel">
+        <div class="ranking-summary">
+          <p class="ranking-summary__title" id="rankingSummaryTitle">
+            Loading rankings…
+          </p>
+          <p class="ranking-summary__meta" id="rankingSummaryMeta"></p>
+          <p class="ranking-summary__note">
+            Blended score is the sum of the selected metric scores; the average
+            is shown for quick comparison.
+          </p>
+        </div>
+        <div class="table-container">
+          <table class="ranking-table" id="rankingTable">
+            <thead>
+              <tr>
+                <th scope="col">Rank</th>
+                <th scope="col">Company</th>
+                <th scope="col">Sector</th>
+                <th scope="col">Blended Score</th>
+                <th scope="col">Score Breakdown</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+          <div id="rankingEmptyState" class="empty-state ranking-empty" hidden>
+            Adjust your filters or metric selections to see rankings.
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <p>
+        Data source:
+        <span class="mono">Sp500fin2_scored.csv</span>
+        · Blended rankings recompute instantly as metrics are toggled.
+      </p>
+    </footer>
+  </body>
+</html>
+
