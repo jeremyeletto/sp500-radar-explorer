@@ -12,12 +12,63 @@ const SCORE_FIELDS = [
 ];
 const SCORE_FALLBACK = 50;
 const MIN_ACTIVE_METRICS = 1;
-const DEFAULT_TOP_N = 100;
+const MAX_ROWS = 100;
+const SCORE_RAW_META = {
+  "Marketcap Score": {
+    key: "Marketcap",
+    format: formatCurrencyValue,
+  },
+  "Ebitda Score": {
+    key: "Ebitda",
+    format: formatCurrencyValue,
+  },
+  "Revenuegrowth Score": {
+    key: "Revenuegrowth",
+    format: (value) => formatPercentValue(value),
+  },
+  "Weight Score": {
+    key: "Weight",
+    format: formatPercentValue,
+  },
+  "P/B Ratio Score": {
+    key: "P/B Ratio",
+    format: (value) => formatNumberValue(value, 2),
+  },
+  "P/E Ratio Score": {
+    key: "P/E Ratio",
+    format: (value) => formatNumberValue(value, 2),
+  },
+  "Dividend Yield Score": {
+    key: "Dividend Yield",
+    format: (value) => formatPercentValue(value, true),
+  },
+  "EPS Score": {
+    key: "EPS",
+    format: (value) => formatNumberValue(value, 2),
+  },
+  "ROE Score": {
+    key: "ROE",
+    format: (value) => formatPercentValue(value, true),
+  },
+};
+
+const formatCurrency = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 0,
+});
+
+const formatNumber = new Intl.NumberFormat("en-US", {
+  maximumFractionDigits: 0,
+});
+
+const formatPercent = new Intl.NumberFormat("en-US", {
+  style: "percent",
+  maximumFractionDigits: 2,
+});
 
 let companies = [];
 let activeMetricSet = new Set(SCORE_FIELDS);
-let searchTerm = "";
-let topLimit = DEFAULT_TOP_N;
 
 document.addEventListener("DOMContentLoaded", () => {
   bootstrap();
@@ -31,18 +82,6 @@ async function bootstrap() {
     companies.sort((a, b) => d3.ascending(a.Symbol, b.Symbol));
     initMetricControls();
     initControls();
-    const topInput = document.getElementById("topNInput");
-    if (topInput) {
-      topInput.max = companies.length || DEFAULT_TOP_N;
-      const initialValue = Number(topInput.value);
-      const sanitized = Number.isFinite(initialValue)
-        ? clamp(initialValue, 10, companies.length || DEFAULT_TOP_N)
-        : Math.min(DEFAULT_TOP_N, companies.length || DEFAULT_TOP_N);
-      topLimit = sanitized;
-      topInput.value = sanitized;
-    } else {
-      topLimit = Math.min(DEFAULT_TOP_N, companies.length || DEFAULT_TOP_N);
-    }
     renderRankings();
   } catch (error) {
     console.error(error);
@@ -53,28 +92,7 @@ async function bootstrap() {
 }
 
 function initControls() {
-  const searchInput = document.getElementById("rankingSearch");
-  const topNInput = document.getElementById("topNInput");
-
-  if (searchInput) {
-    searchInput.addEventListener("input", (event) => {
-      searchTerm = event.target.value.trim().toLowerCase();
-      renderRankings();
-    });
-  }
-
-  if (topNInput) {
-    topNInput.addEventListener("input", (event) => {
-      const value = Number(event.target.value);
-      if (Number.isFinite(value)) {
-        topLimit = clamp(value, 10, companies.length || DEFAULT_TOP_N);
-      } else {
-        topLimit = DEFAULT_TOP_N;
-      }
-      event.target.value = topLimit;
-      renderRankings();
-    });
-  }
+  // No additional controls right now.
 }
 
 function initMetricControls() {
@@ -124,7 +142,7 @@ function renderRankings() {
 function updateSummary(metrics) {
   const title = document.getElementById("rankingSummaryTitle");
   const meta = document.getElementById("rankingSummaryMeta");
-  const metricNames = metrics.map((metric) => metric.replace(" Score", ""));
+  const metricNames = metrics.map(formatMetricLabel);
 
   if (title) {
     title.textContent = `Showing blended rankings across ${metrics.length} metric${
@@ -132,8 +150,8 @@ function updateSummary(metrics) {
     }`;
   }
   if (meta) {
-    const filteredCount = applyFilters(companies).length;
-    const topDisplayed = Math.min(topLimit, filteredCount);
+    const filteredCount = companies.length;
+    const topDisplayed = Math.min(MAX_ROWS, filteredCount);
     meta.textContent = metrics.length
       ? `Showing top ${topDisplayed.toLocaleString()} of ${filteredCount.toLocaleString()} companies · Metrics: ${
           metricNames.length ? metricNames.join(", ") : "None"
@@ -145,10 +163,43 @@ function updateSummary(metrics) {
 function renderRankingTable(metrics) {
   const table = document.getElementById("rankingTable");
   const tbody = table ? table.querySelector("tbody") : null;
+  const thead = table ? table.querySelector("thead") : null;
   const emptyState = document.getElementById("rankingEmptyState");
 
-  if (!tbody) {
+  if (!tbody || !thead) {
     return;
+  }
+
+  const candidates = companies;
+
+  thead.textContent = "";
+  const headerRow = document.createElement("tr");
+  const baseHeaders = [
+    { label: "Rank", className: "col-rank" },
+    { label: "Company", className: "col-company" },
+    { label: "Sector" },
+    { label: "Blended Score" },
+  ];
+
+  const metricHeaders = metrics.map((field) => ({
+    label: formatMetricLabel(field),
+    className: "metric-column",
+  }));
+
+  [...baseHeaders, ...metricHeaders].forEach((definition) => {
+    const th = document.createElement("th");
+    th.textContent = definition.label;
+    if (definition.className) {
+      th.classList.add(definition.className);
+    }
+    headerRow.appendChild(th);
+  });
+  thead.appendChild(headerRow);
+
+  const baseWidth = 720;
+  const metricWidth = 170;
+  if (table) {
+    table.style.minWidth = `${baseWidth + metrics.length * metricWidth}px`;
   }
 
   tbody.textContent = "";
@@ -159,25 +210,28 @@ function renderRankingTable(metrics) {
       emptyState.textContent =
         "Select at least one metric to generate blended rankings.";
     }
-    if (table) {
-      table.hidden = true;
-    }
+    table.hidden = false;
     return;
   }
 
-  const candidates = applyFilters(companies);
   const rankings = candidates
     .map((company) => {
       const metricsData = metrics.map((field) => {
         const raw = Number(company[field]);
         const score = Number.isFinite(raw) ? raw : SCORE_FALLBACK;
+        const meta = SCORE_RAW_META[field];
+        const rawValue =
+          meta && company.hasOwnProperty(meta.key) ? company[meta.key] : null;
+        const formattedRaw =
+          meta && Number.isFinite(rawValue)
+            ? meta.format(rawValue)
+            : "N/A";
         return {
-          field,
           score,
-          label: field.replace(" Score", ""),
+          raw: formattedRaw,
         };
       });
-      const totalScore = metricsData.reduce((sum, m) => sum + m.score, 0);
+      const totalScore = metricsData.reduce((sum, metric) => sum + metric.score, 0);
       const averageScore = metricsData.length
         ? totalScore / metricsData.length
         : 0;
@@ -201,76 +255,73 @@ function renderRankingTable(metrics) {
       emptyState.textContent =
         "No companies match your search. Try broadening the filters.";
     }
-    if (table) {
-      table.hidden = true;
-    }
+    table.hidden = false;
     return;
   }
 
-  const limited = rankings.slice(
-    0,
-    Math.min(topLimit, rankings.length || DEFAULT_TOP_N)
-  );
+  const limited = rankings.slice(0, Math.min(MAX_ROWS, rankings.length || MAX_ROWS));
 
   limited.forEach((entry, index) => {
     const { company, metricsData, totalScore, averageScore } = entry;
     const tr = document.createElement("tr");
 
     const rankCell = document.createElement("td");
-    rankCell.className = "ranking-rank";
+    rankCell.className = "cell-rank";
     rankCell.textContent = (index + 1).toString();
     tr.appendChild(rankCell);
 
-    const symbolCell = document.createElement("td");
-    symbolCell.className = "ranking-symbol";
+    const companyCell = document.createElement("td");
+    companyCell.className = "cell-company";
     const link = document.createElement("a");
     link.href = `./index.html?symbol=${encodeURIComponent(company.Symbol)}`;
     link.textContent = company.Symbol;
     link.className = "ranking-symbol__link";
-    symbolCell.appendChild(link);
-
+    companyCell.appendChild(link);
     const nameSpan = document.createElement("span");
     nameSpan.className = "ranking-symbol__name";
     nameSpan.textContent =
       company.Shortname ?? company.Longname ?? "Name unavailable";
-    symbolCell.appendChild(nameSpan);
-    tr.appendChild(symbolCell);
+    companyCell.appendChild(nameSpan);
+    tr.appendChild(companyCell);
 
     const sectorCell = document.createElement("td");
-    sectorCell.className = "ranking-sector";
+    sectorCell.className = "cell-sector";
     sectorCell.textContent =
       [company.Sector, company.Industry].filter(Boolean).join(" · ") ||
       "Sector unavailable";
     tr.appendChild(sectorCell);
 
-    const scoreCell = document.createElement("td");
-    scoreCell.className = "ranking-score";
+    const blendedCell = document.createElement("td");
+    blendedCell.className = "cell-score";
     const totalEl = document.createElement("span");
-    totalEl.className = "ranking-score__total";
+    totalEl.className = "score-total";
     totalEl.textContent = totalScore.toFixed(1);
-    scoreCell.appendChild(totalEl);
-
+    blendedCell.appendChild(totalEl);
     const avgEl = document.createElement("span");
-    avgEl.className = "ranking-score__avg";
+    avgEl.className = "score-avg";
     avgEl.textContent = `Avg ${averageScore.toFixed(1)}`;
-    scoreCell.appendChild(avgEl);
-    tr.appendChild(scoreCell);
+    blendedCell.appendChild(avgEl);
+    tr.appendChild(blendedCell);
 
-    const breakdownCell = document.createElement("td");
-    breakdownCell.className = "ranking-metrics";
     metricsData.forEach((metric) => {
-      const chip = document.createElement("span");
-      chip.className = "metric-chip";
-      chip.textContent = metric.label;
+      const metricCell = document.createElement("td");
+      metricCell.className = "metric-column";
+      const wrapper = document.createElement("div");
+      wrapper.className = "metric-cell";
 
-      const valueSpan = document.createElement("span");
-      valueSpan.className = "metric-chip__value";
-      valueSpan.textContent = metric.score.toFixed(1);
-      chip.appendChild(valueSpan);
+      const scoreLine = document.createElement("span");
+      scoreLine.className = "metric-score";
+      scoreLine.textContent = metric.score.toFixed(1);
+      wrapper.appendChild(scoreLine);
 
-      breakdownCell.appendChild(chip);
+      const rawLine = document.createElement("span");
+      rawLine.className = "metric-raw";
+      rawLine.textContent = metric.raw;
+      wrapper.appendChild(rawLine);
+
+      metricCell.appendChild(wrapper);
+      tr.appendChild(metricCell);
     });
-    tr.appendChild(breakdownCell);
 
     tbody.appendChild(tr);
   });
@@ -278,26 +329,11 @@ function renderRankingTable(metrics) {
   if (emptyState) {
     emptyState.hidden = true;
   }
-  if (table) {
-    table.hidden = false;
-  }
+  table.hidden = false;
 }
 
 function applyFilters(source) {
-  if (!searchTerm) {
-    return source;
-  }
-  return source.filter((company) => {
-    return (
-      company.Symbol.toLowerCase().includes(searchTerm) ||
-      (company.Shortname &&
-        company.Shortname.toLowerCase().includes(searchTerm)) ||
-      (company.Longname &&
-        company.Longname.toLowerCase().includes(searchTerm)) ||
-      (company.Sector && company.Sector.toLowerCase().includes(searchTerm)) ||
-      (company.Industry && company.Industry.toLowerCase().includes(searchTerm))
-    );
-  });
+  return source;
 }
 
 function getActiveMetrics() {
@@ -332,6 +368,10 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
+function toggleLoading(isLoading) {
+  document.body.dataset.loading = isLoading ? "true" : "false";
+}
+
 function showError(message) {
   const emptyState = document.getElementById("rankingEmptyState");
   if (emptyState) {
@@ -340,7 +380,30 @@ function showError(message) {
   }
 }
 
-function toggleLoading(isLoading) {
-  document.body.dataset.loading = isLoading ? "true" : "false";
+function formatCurrencyValue(value) {
+  if (!Number.isFinite(value)) {
+    return "N/A";
+  }
+  return formatCurrency.format(value);
+}
+
+function formatNumberValue(value, fractionDigits = 0) {
+  if (!Number.isFinite(value)) {
+    return "N/A";
+  }
+  return value.toFixed(fractionDigits);
+}
+
+function formatPercentValue(value, allowHundreds = false) {
+  if (!Number.isFinite(value)) {
+    return "N/A";
+  }
+  const normalized =
+    allowHundreds && Math.abs(value) > 1 ? value / 100 : value;
+  return formatPercent.format(normalized);
+}
+
+function formatMetricLabel(field) {
+  return field.replace(" Score", "");
 }
 

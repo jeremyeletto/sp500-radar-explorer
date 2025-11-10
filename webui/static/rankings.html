@@ -24,29 +24,6 @@
         </p>
       </div>
       <div class="controls ranking-controls">
-        <label class="control-block">
-          <span class="control-label">Search by ticker, name, or sector</span>
-          <input
-            id="rankingSearch"
-            type="search"
-            placeholder="e.g. AAPL, Financial Services"
-            autocomplete="off"
-          />
-        </label>
-        <label class="control-block">
-          <span class="control-label">Maximum rows</span>
-          <input
-            id="topNInput"
-            type="number"
-            min="10"
-            max="505"
-            step="5"
-            value="100"
-          />
-          <p class="control-hint">
-            Table updates automatically when you change this value.
-          </p>
-        </label>
         <div class="control-block control-block--metrics">
           <span class="control-label">Metrics included in blended score</span>
           <div id="metricOptions" class="metric-options"></div>
@@ -78,7 +55,6 @@
                 <th scope="col">Company</th>
                 <th scope="col">Sector</th>
                 <th scope="col">Blended Score</th>
-                <th scope="col">Score Breakdown</th>
               </tr>
             </thead>
             <tbody></tbody>
